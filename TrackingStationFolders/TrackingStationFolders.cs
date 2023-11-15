@@ -2,15 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using TrackingStationFolders.Components;
 using TrackingStationFolders.Extensions;
-using TrackingStationFolders.Helpers;
-using TrackingStationFolders.Modules;
-using TrackingStationFolders.UI.Screens;
-using UniLinq;
 using UnityEngine;
 
 namespace TrackingStationFolders
@@ -19,8 +12,13 @@ namespace TrackingStationFolders
     public class TrackingStationFolders : MonoBehaviour
     {
         private Dictionary<string, TrackingStationFolder> _folders;
+        private Dictionary<string, List<Vessel>> _vessels;
+        private TrackingStationFolder _openSoon;
+        private int _openSoonDelay;
 
         public static TrackingStationFolders Instance;
+
+        public IEnumerable<string> Folders => _folders.Keys;
 
         private void Awake()
         {
@@ -29,35 +27,47 @@ namespace TrackingStationFolders
             TrackingStationFolders.Instance = this;
         }
 
-        public void ConstructUIList()
+        public void ConstructUIList(string defaultOpen = null)
         {
             this.ClearUIList();
 
             ref var vesselWidgets = ref SpaceTracking.Instance.GetVesselWidgets();
+            _vessels = SpaceTracking.Instance.GetTrackedVessles().GroupBy(x => x.GetTrackingStationFolderName())
+                .OrderBy(x => x.Key)
+                .ToDictionary(x => x.Key, x => x.ToList());
 
-            foreach (Vessel vessel in SpaceTracking.Instance.GetTrackedVessles())
+            foreach(KeyValuePair<string, List<Vessel>> folderData in _vessels.Where(x => x.Key.IsNullOrEmpty() == false))
             {
-                string folderName = vessel.GetTrackingStationFolderName();
+                var folder = this.CreateTrackingStationFolderWidget(folderData.Key);
+                _folders.Add(folderData.Key, folder);
+                vesselWidgets.Add(folder.GetComponent<TrackingStationWidget>());
 
-                if(folderName.IsNullOrEmpty())
+                folder.AddVessels(folderData.Value);
+            }
+
+            if(_vessels.TryGetValue(string.Empty, out List<Vessel> folderlessVessels))
+            {
+                foreach(Vessel vessel in folderlessVessels)
                 {
+                    if(!MapViewFiltering.CheckAgainstFilter(vessel))
+                    {
+                        continue;
+                    }
+
                     TrackingStationWidget widget = UnityEngine.Object.Instantiate(SpaceTracking.Instance.listItemPrefab).Setup(vessel);
 
                     vesselWidgets.Add(widget);
-
-                    continue;
                 }
-                
-                if(_folders.TryGetValue(folderName, out TrackingStationFolder folder) == false)
-                {
-                    folder = this.CreateTrackingStationFolderWidget(folderName);
-                    _folders.Add(folderName, folder);
-                }
-
-                folder.AddVessel(vessel);
             }
 
-            SpaceTracking.Instance.RefreshLayout();
+            if(defaultOpen != null && _folders.TryGetValue(defaultOpen, out TrackingStationFolder defaultOpenFolder))
+            {
+                defaultOpenFolder.Open();
+            }
+            else 
+            {
+                this.RefreshLayout();
+            }
         }
 
         private void ClearUIList()
@@ -67,11 +77,6 @@ namespace TrackingStationFolders
             while (count-- > 0)
             {
                 vesselWidgets[count].Terminate();
-            }
-
-            foreach(TrackingStationFolder folder in _folders.Values)
-            {
-                folder.Terminate();
             }
 
             vesselWidgets.Clear();
@@ -88,14 +93,32 @@ namespace TrackingStationFolders
             return folder;
         }
 
-        private static string GetVesselFolderName(Vessel vessel)
+        public void RefreshLayout()
         {
-            return vessel.FindVesselModuleImplementing<TrackingStationFolderName>().Value;
+            SpaceTracking.Instance.RefreshLayout();
+
+            foreach (TrackingStationFolder folder in _folders.Values)
+            {
+                folder.Indent();
+            }
         }
 
-        private void HandleFolderOnClick(Vessel arg1)
+        public void Update()
         {
-            throw new NotImplementedException();
+            if(_openSoon != null)
+            {
+                if(_openSoonDelay++ >= 5)
+                {
+                    _openSoon.Open();
+                    _openSoon = null;
+                }
+            }
+        }
+
+        internal void OpenSoon(TrackingStationFolder trackingStationFolder)
+        {
+            _openSoon = trackingStationFolder;
+            _openSoonDelay = 0;
         }
     }
 }

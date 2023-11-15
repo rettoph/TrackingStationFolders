@@ -9,6 +9,6 @@ namespace TrackingStationFolders.Modules
     public class TrackingStationFolderName : VesselModule
     {
         [KSPField(isPersistant = true)]
-        public string Value;
+        public string Value = string.Empty;
     }
 }

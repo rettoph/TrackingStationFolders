@@ -11,7 +11,14 @@ namespace TrackingStationFolders.Extensions
     {
         public static string GetTrackingStationFolderName(this Vessel vessel)
         {
-            return vessel.FindVesselModuleImplementing<TrackingStationFolderName>().Value;
+            try
+            {
+                return vessel.FindVesselModuleImplementing<TrackingStationFolderName>().Value;
+            }
+            catch(Exception e)
+            {
+                return string.Empty;
+            }
         }
 
         public static void SetTrackingStationFolderName(this Vessel vessel, string name)
