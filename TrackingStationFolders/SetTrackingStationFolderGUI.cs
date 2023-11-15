@@ -23,8 +23,8 @@ namespace TrackingStationFolders.Components
         public static string Lock = nameof(SetTrackingStationFolderGUI) + "_LOCK";
         private const int _windowId = 150374;
         private string _folder;
-
         private Vessel _vessel;
+
         private Rect _rect = new Rect((Screen.width - 250) / 2, (Screen.height - 480) / 2, 240, 1);
         private static ApplicationLauncherButton _launchButton;
         private Texture2D _launchButtonIcon;
@@ -79,18 +79,36 @@ namespace TrackingStationFolders.Components
                 return;
             }
 
+            if(_vessel != SpaceTracking.Instance.SelectedVessel)
+            {
+                _vessel = SpaceTracking.Instance.SelectedVessel;
+            }
+
             _rect = ClickThruBlocker.GUILayoutWindow(_windowId, _rect, this.DrawGUI, "Tracking Station Folders", HighLogic.Skin.window);
         }
 
         private void Close(bool trySave)
         {
-            if(trySave && _folder != SpaceTracking.Instance.SelectedVessel.GetTrackingStationFolderName())
+            if(trySave)
+            {
+                this.Save();
+            }
+
+            _open = false;
+        }
+
+        private void Save()
+        {
+            if(SpaceTracking.Instance.SelectedVessel == null)
+            {
+                return;
+            }
+
+            if (_folder != SpaceTracking.Instance.SelectedVessel.GetTrackingStationFolderName())
             {
                 SpaceTracking.Instance.SelectedVessel.SetTrackingStationFolderName(_folder);
                 TrackingStationFolders.Instance.ConstructUIList(_folder);
             }
-
-            _open = false;
         }
 
         private void ToggleWindow()
@@ -116,49 +134,58 @@ namespace TrackingStationFolders.Components
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical();
 
-            GUILayout.Label(SpaceTracking.Instance.SelectedVessel?.GetDisplayName() ?? "");
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Folder:", GUILayout.Width(50));
-            _folder = GUILayout.TextField(_folder, GUILayout.Width(200));
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Save"))
+            if(_vessel == null)
             {
-                this.Close(true);
+                GUILayout.Label("No Vessel Selected");
             }
-
-            if (GUILayout.Button("Cancel"))
+            else
             {
-                this.Close(false);
-            }
-            GUILayout.EndHorizontal();
+                GUILayout.Label("Ship: " + _vessel.GetDisplayName());
 
-            if(TrackingStationFolders.Instance.Folders.Any())
-            {
-                GUIStyle horizontalLine;
-                horizontalLine = new GUIStyle();
-                horizontalLine.normal.background = Texture2D.whiteTexture;
-                horizontalLine.margin = new RectOffset(0, 0, 4, 4);
-                horizontalLine.fixedHeight = 1;
-                GUILayout.Box(GUIContent.none, horizontalLine);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Folder:", GUILayout.Width(50));
+                _folder = GUILayout.TextField(_folder, GUILayout.Width(200));
+                GUILayout.EndHorizontal();
 
-                bool folderPresetButtonClicked = false;
-                foreach (string folder in TrackingStationFolders.Instance.Folders)
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Save"))
                 {
-                    if (GUILayout.Button(folder))
+                    this.Save();
+                }
+
+                if (GUILayout.Button("Close"))
+                {
+                    this.Close(false);
+                }
+
+                GUILayout.EndHorizontal();
+
+                if (TrackingStationFolders.Instance.Folders.Any())
+                {
+                    GUIStyle horizontalLine;
+                    horizontalLine = new GUIStyle();
+                    horizontalLine.normal.background = Texture2D.whiteTexture;
+                    horizontalLine.margin = new RectOffset(0, 0, 4, 4);
+                    horizontalLine.fixedHeight = 1;
+                    GUILayout.Box(GUIContent.none, horizontalLine);
+
+                    bool folderPresetButtonClicked = false;
+                    foreach (string folder in TrackingStationFolders.Instance.Folders)
                     {
-                        _folder = folder;
-                        folderPresetButtonClicked |= true;
+                        if (GUILayout.Button(folder))
+                        {
+                            _folder = folder;
+                            folderPresetButtonClicked |= true;
+                        }
+                    }
+
+                    if (folderPresetButtonClicked)
+                    {
+                        this.Save();
                     }
                 }
-
-                if (folderPresetButtonClicked)
-                {
-                    this.Close(true);
-                }
             }
+
 
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
